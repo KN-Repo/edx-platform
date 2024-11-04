@@ -57,8 +57,6 @@ urlpatterns = [
         path('blocks/<str:usage_key_str>/', include([
             # Get metadata about a specific XBlock in this library, or delete the block:
             path('', views.LibraryBlockView.as_view()),
-            # Update collections for a given component
-            path('collections/', views.LibraryBlockCollectionsView.as_view(), name='update-collections'),
             # Get the LTI URL of a specific XBlock
             path('lti/', views.LibraryBlockLtiUrlView.as_view(), name='lti-url'),
             # Get the OLX source code of the specified block:
@@ -66,8 +64,7 @@ urlpatterns = [
             # CRUD for static asset files associated with a block in the library:
             path('assets/', views.LibraryBlockAssetListView.as_view()),
             path('assets/<path:file_path>', views.LibraryBlockAssetView.as_view()),
-            path('publish/', views.LibraryBlockPublishView.as_view()),
-            # Future: discard changes for just this one block
+            # Future: publish/discard changes for just this one block
             # Future: set a block's tags (tags are stored in a Tag bundle and linked in)
         ])),
         re_path(r'^lti/1.3/', include([
@@ -76,17 +73,4 @@ urlpatterns = [
             path('pub/jwks/', views.LtiToolJwksView.as_view(), name='lti-pub-jwks'),
         ])),
     ])),
-    path('library_assets/', include([
-        path(
-            'component_versions/<uuid:component_version_uuid>/<path:asset_path>',
-            views.component_version_asset,
-            name='library-assets',
-        ),
-        path(
-            'blocks/<usage_v2:usage_key>/<path:asset_path>',
-            views.component_draft_asset,
-            name='library-draft-assets',
-        ),
-    ])
-    ),
 ]

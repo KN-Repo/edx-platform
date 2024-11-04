@@ -332,6 +332,12 @@ class CourseFields:  # lint-amnesty, pylint: disable=missing-class-docstring
         default=[],
         scope=Scope.content
     )
+    course_owner = String(
+        display_name=_("Course Owner"),
+        help=_("Owner of the course."),
+        scope=Scope.settings,
+        default='',
+    )
 
     wiki_slug = String(help=_("Slug that points to the wiki for this course"), scope=Scope.content)
     enrollment_start = Date(

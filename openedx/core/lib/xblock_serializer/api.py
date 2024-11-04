@@ -2,7 +2,7 @@
 Public python API for serializing XBlocks to OLX
 """
 # pylint: disable=unused-import
-from .block_serializer import StaticFile, XBlockSerializer
+from .block_serializer import StaticFile, XBlockSerializer, XBlockSerializerForLearningCore
 
 
 def serialize_xblock_to_olx(block):
@@ -10,9 +10,6 @@ def serialize_xblock_to_olx(block):
     This class will serialize an XBlock, producing:
         (1) an XML string defining the XBlock and all of its children (inline)
         (2) a list of any static files required by the XBlock and their URL
-
-    This calls XBlockSerializer with all default options. To actually tweak the
-    output, instantiate XBlockSerializer directly.
     """
     return XBlockSerializer(block)
 
@@ -32,4 +29,4 @@ def serialize_modulestore_block_for_learning_core(block):
     we have around how we should rewrite this (e.g. are we going to
     remove <xblock-include>?).
     """
-    return XBlockSerializer(block, write_url_name=False)
+    return XBlockSerializerForLearningCore(block)
