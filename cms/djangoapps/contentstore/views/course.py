@@ -414,13 +414,16 @@ def _accessible_courses_summary_iter(request, org=None):
         return has_studio_read_access(request.user, course_summary.id)
 
     enable_home_page_api_v2 = settings.FEATURES["ENABLE_HOME_PAGE_COURSE_API_V2"]
-
+    print("_accessible_courses_summary_iter")
     if org is not None:
+        print("_accessible_courses_summary_iter 1")
         courses_summary = [] if org == '' else CourseOverview.get_all_courses(orgs=[org])
     elif enable_home_page_api_v2:
+        print("_accessible_courses_summary_iter 2")
         # If the new home page API is enabled, we should use the Django ORM to filter and order the courses
         courses_summary = CourseOverview.get_all_courses()
     else:
+        print("_accessible_courses_summary_iter 3")
         courses_summary = modulestore().get_course_summaries()
 
     if enable_home_page_api_v2:
@@ -762,8 +765,10 @@ def get_courses_accessible_to_user(request, org=None):
             returned), an empty string will result in no courses, and otherwise only courses with the
             specified org will be returned. The default value is None.
     """
+    print("get_courses_accessible_to_user")
     if GlobalStaff().has_user(request.user):
         # user has global access so no need to get courses from django groups
+        print("get_courses_accessible_to_user has_user(request.user)" )
         courses, in_process_course_actions = _accessible_courses_summary_iter(request, org)
     else:
         try:
@@ -874,6 +879,7 @@ def _create_or_rerun_course(request):
     """
     try:
         org = request.json.get('org')
+        course_owner = request.json.get('course_owner')
         course = request.json.get('number', request.json.get('course'))
         display_name = request.json.get('display_name')
         # force the start date for reruns and allow us to override start via the client
@@ -915,7 +921,7 @@ def _create_or_rerun_course(request):
             })
         else:
             try:
-                new_course = create_new_course(request.user, org, course, run, fields)
+                new_course = create_new_course(request.user, org, course, course_owner, run, fields)
                 return JsonResponse({
                     'url': reverse_course_url('course_handler', new_course.id),
                     'course_key': str(new_course.id),
@@ -956,7 +962,7 @@ def _create_or_rerun_course(request):
         )
 
 
-def create_new_course(user, org, number, run, fields):
+def create_new_course(user, org, number, course_owner, run, fields):
     """
     Create a new course run.
 
@@ -970,20 +976,26 @@ def create_new_course(user, org, number, run, fields):
             'You must link this course to an organization in order to continue. Organization '
             'you selected does not exist in the system, you will need to add it to the system'
         ))
+    
+    # Include the course_owner in the fields
+    fields.update({
+        'course_owner': course_owner,
+    })
+
     store_for_new_course = modulestore().default_modulestore.get_modulestore_type()
-    new_course = create_new_course_in_store(store_for_new_course, user, org, number, run, fields)
+    new_course = create_new_course_in_store(store_for_new_course, user, org, number, course_owner, run, fields)
     add_organization_course(org_data, new_course.id)
     update_course_discussions_settings(new_course)
 
     # Enable certain fields rolling forward, where configured
     if default_enable_flexible_peer_openassessments(new_course.id):
         new_course.force_on_flexible_peer_openassessments = True
-    modulestore().update_item(new_course, new_course.published_by)
+    modulestore().update_item(new_course,"Update Second time from course.py", new_course.published_by)
 
     return new_course
 
 
-def create_new_course_in_store(store, user, org, number, run, fields):
+def create_new_course_in_store(store, user, org, number, course_owner, run, fields):
     """
     Create course in store w/ handling instructor enrollment, permissions, and defaulting the wiki slug.
     Separated out b/c command line course creation uses this as well as the web interface.
@@ -1002,6 +1014,7 @@ def create_new_course_in_store(store, user, org, number, run, fields):
             number,
             run,
             user.id,
+            course_owner,
             fields=fields,
         )
 

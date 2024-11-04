@@ -111,6 +111,11 @@ from common.djangoapps.student.models import CourseEnrollment
 </%block>
 
 <div class="dashboard-notifications" tabindex="-1">
+    <!-- start new content -->
+
+    Welcome to your dashboard!
+
+    <!-- end new content -->
 
     %if banner_account_activation_message:
         <div class="dashboard-banner">
@@ -242,7 +247,7 @@ from common.djangoapps.student.models import CourseEnrollment
                 %endif
                 % if settings.FEATURES.get('COURSES_ARE_BROWSABLE'):
                   <a class="btn btn-primary" href="${marketing_link('COURSES')}">
-                    ${_("Explore courses")}
+                    ${_("Explore dfg courses")}
                   </a>
                 %endif
               % else:

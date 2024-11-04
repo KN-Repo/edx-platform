@@ -5,6 +5,8 @@ Tests for LTI views.
 from django.conf import settings
 from django.test import TestCase, override_settings
 
+from openedx.core.djangoapps.content_libraries.constants import PROBLEM
+
 from .base import (
     ContentLibrariesRestApiTest,
     URL_LIB_LTI_JWKS,
@@ -58,10 +60,10 @@ class LibraryBlockLtiUrlViewTestMixin:
         """
 
         library = self._create_library(
-            slug="libgg", title="A Test Library", description="Testing library",
+            slug="libgg", title="A Test Library", description="Testing library", library_type=PROBLEM,
         )
 
-        block = self._add_block_to_library(library['id'], 'problem', 'problem')
+        block = self._add_block_to_library(library['id'], PROBLEM, PROBLEM)
         usage_key = str(block['id'])
 
         url = f'/api/libraries/v2/blocks/{usage_key}/lti/'
