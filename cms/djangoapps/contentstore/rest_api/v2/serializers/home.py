@@ -24,9 +24,10 @@ class UnsucceededCourseSerializerV2(serializers.Serializer):
 
 class CourseCommonSerializerV2(serializers.Serializer):
     """Serializer for course common fields V2."""
-
+    print("sanu in serializer")
     course_key = CourseKeyField(source='id')
     display_name = serializers.CharField()
+    course_owner = serializers.CharField()
     lms_link = serializers.SerializerMethodField()
     cms_link = serializers.SerializerMethodField()
     number = serializers.CharField()

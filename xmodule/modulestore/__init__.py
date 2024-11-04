@@ -1312,7 +1312,7 @@ class ModuleStoreWriteBase(ModuleStoreReadBase, ModuleStoreWrite):
             result[field.scope][field_name] = value
         return result
 
-    def create_course(self, org, course, run, user_id, fields=None, runtime=None, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
+    def create_course(self, org, course, run, user_id,course_owner, fields=None, runtime=None, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
         """
         Creates any necessary other things for the course as a side effect and doesn't return
         anything useful. The real subclass should call this before it returns the course.

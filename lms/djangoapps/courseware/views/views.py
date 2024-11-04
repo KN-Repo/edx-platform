@@ -46,11 +46,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from token_utils.api import unpack_token_for
 from web_fragments.fragment import Fragment
-from xmodule.course_block import (
-    COURSE_VISIBILITY_PUBLIC,
-    COURSE_VISIBILITY_PUBLIC_OUTLINE,
-    CATALOG_VISIBILITY_CATALOG_AND_ABOUT,
-)
+from xmodule.course_block import COURSE_VISIBILITY_PUBLIC, COURSE_VISIBILITY_PUBLIC_OUTLINE
 from xmodule.modulestore.django import modulestore
 from xmodule.modulestore.exceptions import ItemNotFoundError, NoPathToItem
 from xmodule.tabs import CourseTabList
@@ -292,10 +288,7 @@ def courses(request):
     course_discovery_meanings = getattr(settings, 'COURSE_DISCOVERY_MEANINGS', {})
     set_default_filter = ENABLE_COURSE_DISCOVERY_DEFAULT_LANGUAGE_FILTER.is_enabled()
     if not settings.FEATURES.get('ENABLE_COURSE_DISCOVERY'):
-        courses_list = get_courses(
-            request.user,
-            filter_={"catalog_visibility": CATALOG_VISIBILITY_CATALOG_AND_ABOUT},
-        )
+        courses_list = get_courses(request.user)
 
         if configuration_helpers.get_value("ENABLE_COURSE_SORTING_BY_START_DATE",
                                            settings.FEATURES["ENABLE_COURSE_SORTING_BY_START_DATE"]):
@@ -2316,13 +2309,6 @@ def courseware_mfe_search_enabled(request, course_id=None):
             enabled = True
     else:
         enabled = True
-
-    inclusion_date = settings.FEATURES.get('COURSEWARE_SEARCH_INCLUSION_DATE')
-    start_date = CourseOverview.get_from_id(course_key).start
-
-    # only include courses that have a start date later than the setting-defined inclusion date
-    if inclusion_date:
-        enabled = enabled and (start_date and start_date.strftime('%Y-%m-%d') > inclusion_date)
 
     payload = {"enabled": courseware_mfe_search_is_enabled(course_key) if enabled else False}
     return JsonResponse(payload)

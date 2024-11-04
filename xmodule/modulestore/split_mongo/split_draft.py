@@ -21,7 +21,7 @@ class DraftVersioningModuleStore(SplitMongoModuleStore, ModuleStoreDraftAndPubli
     A subclass of Split that supports a dual-branch fall-back versioning framework
         with a Draft branch that falls back to a Published branch.
     """
-    def create_course(self, org, course, run, user_id, skip_auto_publish=False, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
+    def create_course(self, org, course, run, user_id, course_owner ,skip_auto_publish=False, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
         """
         Creates and returns the course.
 
@@ -37,7 +37,7 @@ class DraftVersioningModuleStore(SplitMongoModuleStore, ModuleStoreDraftAndPubli
         master_branch = kwargs.pop('master_branch', ModuleStoreEnum.BranchName.draft)
         with self.bulk_operations(CourseLocator(org, course, run), ignore_case=True):
             item = super().create_course(
-                org, course, run, user_id, master_branch=master_branch, **kwargs
+                org, course, run, user_id, course_owner,master_branch=master_branch, **kwargs
             )
             if master_branch == ModuleStoreEnum.BranchName.draft and not skip_auto_publish:
                 # any other value is hopefully only cloning or doing something which doesn't want this value add
@@ -50,7 +50,7 @@ class DraftVersioningModuleStore(SplitMongoModuleStore, ModuleStoreDraftAndPubli
                 with self.branch_setting(ModuleStoreEnum.Branch.draft_preferred, item.id):
                     # NOTE: DO NOT CHANGE THE SUPER. See comment above
                     super(SplitMongoModuleStore, self).create_course(  # lint-amnesty, pylint: disable=bad-super-call
-                        org, course, run, user_id, runtime=item.runtime, **kwargs
+                        org, course, run, user_id, course_owner, runtime=item.runtime, **kwargs
                     )
 
             return item
@@ -140,7 +140,7 @@ class DraftVersioningModuleStore(SplitMongoModuleStore, ModuleStoreDraftAndPubli
                         keys_to_check.extend(children)
         return new_keys
 
-    def update_item(self, block, user_id, allow_not_found=False, force=False, asides=None, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
+    def update_item(self, block, user_id,called_by, allow_not_found=False, force=False, asides=None, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
         old_block_locn = block.location
         block.location = self._map_revision_to_branch(old_block_locn)
         emit_signals = block.location.branch == ModuleStoreEnum.BranchName.published \
@@ -150,6 +150,7 @@ class DraftVersioningModuleStore(SplitMongoModuleStore, ModuleStoreDraftAndPubli
             item = super().update_item(
                 block,
                 user_id,
+                called_by,
                 allow_not_found=allow_not_found,
                 force=force,
                 asides=asides,

@@ -130,18 +130,35 @@ class HomePageCoursesViewV2(APIView):
         if the `ENABLE_HOME_PAGE_COURSE_API_V2` feature flag is not enabled, an HTTP 404 "Not Found" response
         is returned.
         """
+
+        print("Sanu get v2 api")
         if not settings.FEATURES.get('ENABLE_HOME_PAGE_COURSE_API_V2', False):
             return HttpResponseNotFound()
 
         courses, in_process_course_actions = get_course_context_v2(request)
+        courses = list(courses)  # Convert to list
         paginator = HomePageCoursesPaginator()
         courses_page = paginator.paginate_queryset(
             courses,
             self.request,
             view=self
         )
+        print("courses_page",courses_page)
+
+
+        # Print each course's attributes and values dynamically
+        for course in courses_page:
+            print("Course Page:")
+            for key, value in vars(course).items():  # Use vars() to get all attributes
+                print(f"{key}: {value}")
+            print("----")  # Separator for readability
+
+
+        print("in_process_course_actions",in_process_course_actions)
+        print("course_page",courses_page)
         serializer = CourseHomeTabSerializerV2({
             'courses': courses_page,
             'in_process_course_actions': in_process_course_actions,
         })
+        print("courses serializer data 2",serializer.data)
         return paginator.get_paginated_response(serializer.data)

@@ -343,7 +343,7 @@ class MixedModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase):
     @strip_key
     def get_library_summaries(self, **kwargs):
         """
-        Returns a list of LegacyLibrarySummary objects.
+        Returns a list of LibrarySummary objects.
         Information contains `location`, `display_name`, `locator` of the libraries in this modulestore.
         """
         library_summaries = {}
@@ -647,7 +647,7 @@ class MixedModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase):
         return errs
 
     @strip_key
-    def create_course(self, org, course, run, user_id, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
+    def create_course(self, org, course, run, user_id,course_owner, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
         """
         Creates and returns the course.
 
@@ -661,6 +661,7 @@ class MixedModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase):
 
         Returns: a CourseBlock
         """
+
         # first make sure an existing course doesn't already exist in the mapping
         course_key = self.make_course_key(org, course, run)
 
@@ -671,7 +672,7 @@ class MixedModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase):
 
         # create the course
         store = self._verify_modulestore_support(None, 'create_course')
-        course = store.create_course(org, course, run, user_id, **kwargs)
+        course = store.create_course(org, course, run, user_id, course_owner,**kwargs)
         log.info('Course run %s created successfully!', course_key)
 
         # add new course to the mapping
@@ -756,6 +757,7 @@ class MixedModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase):
             fields (dict): A dictionary specifying initial values for some or all fields
                 in the newly created block
         """
+        print("create item called from parent")
         modulestore = self._verify_modulestore_support(course_key, 'create_item')
         xblock = modulestore.create_item(user_id, course_key, block_type, block_id=block_id, fields=fields, **kwargs)
 
@@ -832,11 +834,12 @@ class MixedModuleStore(ModuleStoreDraftAndPublished, ModuleStoreWriteBase):
 
     @strip_key
     @prepare_asides
-    def update_item(self, xblock, user_id, allow_not_found=False, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
+    def update_item(self, xblock,message, user_id, allow_not_found=False, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
         """
         Update the xblock persisted to be the same as the given for all types of fields
         (content, children, and metadata) attribute the change to the given user.
         """
+        print("Update Item Called from Mixed",message)
         course_key = xblock.location.course_key
         store = self._verify_modulestore_support(course_key, 'update_item')
         xblock = store.update_item(xblock, user_id, allow_not_found, **kwargs)

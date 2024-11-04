@@ -7,6 +7,7 @@ import json
 import logging
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
+import copy
 
 import pytz
 from ccx_keys.locator import CCXLocator
@@ -79,6 +80,7 @@ class CourseOverview(TimeStampedModel):
 
     start = models.DateTimeField(null=True)
     end = models.DateTimeField(null=True)
+    course_owner = models.CharField(max_length=255, null=True, blank=True)
 
     # These are deprecated and unused, but cannot be dropped via simple migration due to the size of the downstream
     # history table. See DENG-19 for details.
@@ -205,6 +207,7 @@ class CourseOverview(TimeStampedModel):
             log.info('Creating course overview for %s.', str(course.id))
             course_overview = cls()
 
+        print("Sanu in _create_or_update",course)
         course_overview.version = cls.VERSION
         course_overview.id = course.id
         course_overview._location = course.location  # lint-amnesty, pylint: disable=protected-access
@@ -212,7 +215,7 @@ class CourseOverview(TimeStampedModel):
         course_overview.display_name = display_name
         course_overview.display_number_with_default = course.display_number_with_default
         course_overview.display_org_with_default = course.display_org_with_default
-
+        course_overview.course_owner = getattr(course, 'course_owner', None)
         course_overview.start = start
         course_overview.end = end
         course_overview.advertised_start = course.advertised_start
@@ -678,6 +681,22 @@ class CourseOverview(TimeStampedModel):
         # make sure the "publish" signal was emitted when the course was
         # created. For tests using CourseFactory, use emit_signals=True.
         course_overviews = CourseOverview.objects.all()
+        print(course_overviews.query)
+        print("sanu in get_all_courses", course_overviews )
+
+
+
+
+
+        # Make a deep copy of the original list
+        course_overviews_copy = copy.deepcopy(course_overviews)
+
+        # Print each course's attributes and values dynamically using the copied list
+        for course_overview in course_overviews_copy:
+            print("course_overview Details:")
+            for key, value in vars(course_overview).items():  # Use vars() to get all attributes
+                print(f"{key}: {value}")
+            print("----")  # Separator for readability
 
         if course_keys:
             course_overviews = course_overviews.filter(id__in=course_keys)
