@@ -5,7 +5,7 @@ we keep here some extra classes for usage within edx-platform. These classes cov
 import logging
 
 from edx_toggles.toggles import WaffleFlag
-from opaque_keys.edx.keys import CourseKey, LearningContextKey
+from opaque_keys.edx.keys import CourseKey
 
 log = logging.getLogger(__name__)
 
@@ -99,11 +99,7 @@ class CourseWaffleFlag(WaffleFlag):
 
     def is_enabled(self, course_key=None):  # pylint: disable=arguments-differ
         """
-        Returns whether or not the flag is enabled within the context of a given
-        course.
-
-        Can also be given the key of any other learning context (like a content
-        library), but it will act like a regular waffle flag in that case.
+        Returns whether or not the flag is enabled within the context of a given course.
 
         Arguments:
             course_key (Optional[CourseKey]): The course to check for override before
@@ -111,12 +107,12 @@ class CourseWaffleFlag(WaffleFlag):
                 outside the context of any course.
         """
         if course_key:
-            if isinstance(course_key, CourseKey):
-                is_enabled_for_course = self._get_course_override_value(course_key)
-                if is_enabled_for_course is not None:
-                    return is_enabled_for_course
-            else:
-                # In case this gets called with a content library key, that's fine - just ignore it and
-                # act like a normal waffle flag. We currently don't support library-specific overrides.
-                assert isinstance(course_key, LearningContextKey), "expected a course key or other learning context key"
+            assert isinstance(
+                course_key, CourseKey
+            ), "Provided course_key '{}' is not instance of CourseKey.".format(
+                course_key
+            )
+        is_enabled_for_course = self._get_course_override_value(course_key)
+        if is_enabled_for_course is not None:
+            return is_enabled_for_course
         return super().is_enabled()

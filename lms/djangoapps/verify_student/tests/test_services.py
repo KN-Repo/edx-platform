@@ -2,7 +2,6 @@
 Tests for the service classes in verify_student.
 """
 
-import itertools
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
@@ -274,29 +273,6 @@ class TestIDVerificationServiceUserStatus(TestCase):
             }
             self.assertDictEqual(status, expected_status)
 
-    def test_approved_verification_attempt_verification(self):
-        with freeze_time('2015-01-02'):
-            # test for when Verification Attempt verification has been created
-            VerificationAttempt.objects.create(user=self.user, status='approved')
-            status = IDVerificationService.user_status(self.user)
-            expected_status = {'status': 'approved', 'error': '', 'should_display': True, 'verification_expiry': '',
-                               'status_date': datetime.now(utc)}
-            self.assertDictEqual(status, expected_status)
-
-    def test_denied_verification_attempt_verification(self):
-        with freeze_time('2015-2-02'):
-            # create denied photo verification for the user, make sure the denial
-            # is handled properly
-            VerificationAttempt.objects.create(
-                user=self.user, status='denied'
-            )
-            status = IDVerificationService.user_status(self.user)
-            expected_status = {
-                'status': 'must_reverify', 'error': '',
-                'should_display': True, 'verification_expiry': '', 'status_date': '',
-            }
-            self.assertDictEqual(status, expected_status)
-
     def test_approved_sso_verification(self):
         with freeze_time('2015-03-02'):
             # test for when sso verification has been created
@@ -327,19 +303,22 @@ class TestIDVerificationServiceUserStatus(TestCase):
                                'status_date': datetime.now(utc)}
             self.assertDictEqual(status, expected_status)
 
-    @ddt.idata(itertools.product(
-        [SoftwareSecurePhotoVerification, VerificationAttempt],
-        ['submitted', 'denied', 'approved', 'created', 'ready', 'must_retry'])
+    @ddt.data(
+        'submitted',
+        'denied',
+        'approved',
+        'created',
+        'ready',
+        'must_retry'
     )
-    def test_expiring_software_secure_verification(self, value):
-        verification_model, new_status = value
+    def test_expiring_software_secure_verification(self, new_status):
         with freeze_time('2015-07-11') as frozen_datetime:
             # create approved photo verification for the user
-            verification_model.objects.create(user=self.user, status='approved')
+            SoftwareSecurePhotoVerification.objects.create(user=self.user, status='approved')
             expiring_datetime = datetime.now(utc)
             frozen_datetime.move_to('2015-07-14')
             # create another according to status passed in.
-            verification_model.objects.create(user=self.user, status=new_status)
+            SoftwareSecurePhotoVerification.objects.create(user=self.user, status=new_status)
             status_date = expiring_datetime
             if new_status == 'approved':
                 status_date = datetime.now(utc)
@@ -348,16 +327,13 @@ class TestIDVerificationServiceUserStatus(TestCase):
             status = IDVerificationService.user_status(self.user)
             self.assertDictEqual(status, expected_status)
 
-    @ddt.data(SoftwareSecurePhotoVerification, VerificationAttempt)
-    def test_expired_verification(self, verification_model):
+    def test_expired_verification(self):
         with freeze_time('2015-07-11') as frozen_datetime:
-            key = 'expiration_datetime' if verification_model == VerificationAttempt else 'expiration_date'
-
-            # create approved verification for the user
-            verification_model.objects.create(
+            # create approved photo verification for the user
+            SoftwareSecurePhotoVerification.objects.create(
                 user=self.user,
                 status='approved',
-                **{key: now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])},
+                expiration_date=now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])
             )
             frozen_datetime.move_to('2016-07-11')
             expected_status = {
@@ -372,28 +348,28 @@ class TestIDVerificationServiceUserStatus(TestCase):
             status = IDVerificationService.user_status(self.user)
             self.assertDictEqual(status, expected_status)
 
-    @ddt.idata(itertools.product(
-        [SoftwareSecurePhotoVerification, VerificationAttempt],
-        ['submitted', 'denied', 'approved', 'created', 'ready', 'must_retry'])
+    @ddt.data(
+        'submitted',
+        'denied',
+        'approved',
+        'created',
+        'ready',
+        'must_retry'
     )
-    def test_reverify_after_expired(self, value):
-        verification_model, new_status = value
+    def test_reverify_after_expired(self, new_status):
         with freeze_time('2015-07-11') as frozen_datetime:
-            key = 'expiration_datetime' if verification_model == VerificationAttempt else 'expiration_date'
-
-            # create approved verification for the user
-            verification_model.objects.create(
+            # create approved photo verification for the user
+            SoftwareSecurePhotoVerification.objects.create(
                 user=self.user,
                 status='approved',
-                **{key: now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])},
+                expiration_date=now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])
             )
-
             frozen_datetime.move_to('2016-07-12')
             # create another according to status passed in.
-            verification_model.objects.create(
+            SoftwareSecurePhotoVerification.objects.create(
                 user=self.user,
                 status=new_status,
-                **{key: now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])},
+                expiration_date=now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])
             )
 
             check_status = new_status
@@ -414,10 +390,9 @@ class TestIDVerificationServiceUserStatus(TestCase):
 
     @ddt.data(
         SSOVerification,
-        ManualVerification,
-        VerificationAttempt
+        ManualVerification
     )
-    def test_override_verification(self, verification_model):
+    def test_override_verification(self, verification_type):
         with freeze_time('2015-07-11') as frozen_datetime:
             # create approved photo verification for the user
             SoftwareSecurePhotoVerification.objects.create(
@@ -426,27 +401,19 @@ class TestIDVerificationServiceUserStatus(TestCase):
                 expiration_date=now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])
             )
             frozen_datetime.move_to('2015-07-14')
-
-            key = 'expiration_datetime' if verification_model == VerificationAttempt else 'expiration_date'
-            verification_model.objects.create(
+            verification_type.objects.create(
                 user=self.user,
                 status='approved',
-                **{key: now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])},
+                expiration_date=now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])
             )
             expected_status = {
-                'status': 'approved', 'error': '',
-                'should_display': verification_model == VerificationAttempt,
+                'status': 'approved', 'error': '', 'should_display': False,
                 'verification_expiry': '', 'status_date': now()
             }
             status = IDVerificationService.user_status(self.user)
             self.assertDictEqual(status, expected_status)
 
-    @ddt.data(
-        SSOVerification,
-        ManualVerification,
-        VerificationAttempt
-    )
-    def test_denied_after_approved_verification(self, verification_model):
+    def test_denied_after_approved_verification(self):
         with freeze_time('2015-07-11') as frozen_datetime:
             # create approved photo verification for the user
             SoftwareSecurePhotoVerification.objects.create(
@@ -456,12 +423,10 @@ class TestIDVerificationServiceUserStatus(TestCase):
             )
             expected_date = now()
             frozen_datetime.move_to('2015-07-14')
-
-            key = 'expiration_datetime' if verification_model == VerificationAttempt else 'expiration_date'
-            verification_model.objects.create(
+            SoftwareSecurePhotoVerification.objects.create(
                 user=self.user,
                 status='denied',
-                **{key: now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])},
+                expiration_date=now() + timedelta(days=settings.VERIFY_STUDENT["DAYS_GOOD_FOR"])
             )
             expected_status = {
                 'status': 'approved', 'error': '', 'should_display': True,
