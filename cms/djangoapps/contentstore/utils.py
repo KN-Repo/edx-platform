@@ -1089,7 +1089,7 @@ def update_course_discussions_settings(course):
     provider = DiscussionsConfiguration.get(context_key=course.id).provider_type
     store = modulestore()
     course.discussions_settings['provider_type'] = provider
-    store.update_item(course, course.published_by)
+    store.update_item(course,"Update Third time from utils.py", course.published_by)
 
 
 def duplicate_block(
@@ -1651,6 +1651,7 @@ def get_course_context_v2(request):
 
     org = request.GET.get('org', '') if optimization_enabled else None
     courses_iter, in_process_course_actions = get_courses_accessible_to_user(request, org)
+    print("in_process_course_actions",in_process_course_actions)
     in_process_course_actions = [format_in_process_course_view(uca) for uca in in_process_course_actions]
     return courses_iter, in_process_course_actions
 

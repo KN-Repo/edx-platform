@@ -243,43 +243,82 @@ class SplitBulkWriteMixin(BulkOperationsMixin):
         """
         Begin a bulk write operation on course_key.
         """
+        print("index entry _start_outermost_bulk_operation_3",bulk_write_record)
         bulk_write_record.initial_index = self.db_connection.get_course_index(course_key, ignore_case=ignore_case)
         # Ensure that any edits to the index don't pollute the initial_index
         bulk_write_record.index = copy.deepcopy(bulk_write_record.initial_index)
         bulk_write_record.course_key = course_key
 
-    def _end_outermost_bulk_operation(self, bulk_write_record, structure_key):  # lint-amnesty, pylint: disable=arguments-differ
+    # def _end_outermost_bulk_operation(self, bulk_write_record, structure_key):  # lint-amnesty, pylint: disable=arguments-differ
+    #     """
+    #     End the active bulk write operation on structure_key (course or library key).
+    #     """
+    #     print("Dirty has been called")
+    #     dirty = False
+
+    #     # If the content is dirty, then update the database
+    #     for _id in bulk_write_record.structures.keys() - bulk_write_record.structures_in_db:
+    #         dirty = False
+
+    #         try:
+    #             self.db_connection.insert_structure(bulk_write_record.structures[_id], bulk_write_record.course_key)
+    #         except DuplicateKeyError:
+    #             # We may not have looked up this structure inside this bulk operation, and thus
+    #             # didn't realize that it was already in the database. That's OK, the store is
+    #             # append only, so if it's already been written, we can just keep going.
+    #             log.debug("Attempted to insert duplicate structure %s", _id)
+
+    #     for _id in bulk_write_record.definitions.keys() - bulk_write_record.definitions_in_db:
+    #         dirty = False
+
+    #         try:
+    #             self.db_connection.insert_definition(bulk_write_record.definitions[_id], bulk_write_record.course_key)
+    #         except DuplicateKeyError:
+    #             # We may not have looked up this definition inside this bulk operation, and thus
+    #             # didn't realize that it was already in the database. That's OK, the store is
+    #             # append only, so if it's already been written, we can just keep going.
+    #             log.debug("Attempted to insert duplicate definition %s", _id)
+
+    #     if bulk_write_record.index is not None and bulk_write_record.index != bulk_write_record.initial_index:
+    #         dirty = False
+
+    #         if bulk_write_record.initial_index is None:
+    #             self.db_connection.insert_course_index(bulk_write_record.index, bulk_write_record.course_key)
+    #         else:
+    #             self.db_connection.update_course_index(
+    #                 bulk_write_record.index,
+    #                 from_index=bulk_write_record.initial_index,
+    #                 course_context=bulk_write_record.course_key
+    #             )
+
+    #     return dirty
+    
+    def _end_outermost_bulk_operation(self, bulk_write_record, structure_key):
         """
         End the active bulk write operation on structure_key (course or library key).
         """
-
         dirty = False
-
-        # If the content is dirty, then update the database
+        #index_entry_before = self.get_course_index(bulk_write_record.index, False)
+        print("index entry _end_outermost_bulk_operation_3",bulk_write_record)
+        # Insert any new structures
         for _id in bulk_write_record.structures.keys() - bulk_write_record.structures_in_db:
-            dirty = True
-
             try:
                 self.db_connection.insert_structure(bulk_write_record.structures[_id], bulk_write_record.course_key)
             except DuplicateKeyError:
-                # We may not have looked up this structure inside this bulk operation, and thus
-                # didn't realize that it was already in the database. That's OK, the store is
-                # append only, so if it's already been written, we can just keep going.
                 log.debug("Attempted to insert duplicate structure %s", _id)
 
+        # Insert any new definitions
         for _id in bulk_write_record.definitions.keys() - bulk_write_record.definitions_in_db:
-            dirty = True
-
             try:
                 self.db_connection.insert_definition(bulk_write_record.definitions[_id], bulk_write_record.course_key)
             except DuplicateKeyError:
-                # We may not have looked up this definition inside this bulk operation, and thus
-                # didn't realize that it was already in the database. That's OK, the store is
-                # append only, so if it's already been written, we can just keep going.
                 log.debug("Attempted to insert duplicate definition %s", _id)
 
+        # Update the course index if it has changed
         if bulk_write_record.index is not None and bulk_write_record.index != bulk_write_record.initial_index:
-            dirty = True
+            # Merge existing custom fields from initial_index into index before writing to DB
+            if bulk_write_record.initial_index:
+                bulk_write_record.index = self._merge_index_entries(bulk_write_record.initial_index, bulk_write_record.index)
 
             if bulk_write_record.initial_index is None:
                 self.db_connection.insert_course_index(bulk_write_record.index, bulk_write_record.course_key)
@@ -291,6 +330,7 @@ class SplitBulkWriteMixin(BulkOperationsMixin):
                 )
 
         return dirty
+
 
     def get_course_index(self, course_key, ignore_case=False):
         """
@@ -310,26 +350,49 @@ class SplitBulkWriteMixin(BulkOperationsMixin):
 
         self.db_connection.delete_course_index(course_key)
 
-    def insert_course_index(self, course_key, index_entry):  # lint-amnesty, pylint: disable=missing-function-docstring
+    def insert_course_index(self, course_key, index_entry):
         bulk_write_record = self._get_bulk_ops_record(course_key)
         if bulk_write_record.active:
+            # Merge existing custom fields from bulk_write_record.index
+            if bulk_write_record.index:
+                for key, value in bulk_write_record.index.items():
+                    if key not in index_entry:
+                        index_entry[key] = value
             bulk_write_record.index = index_entry
         else:
+            # Merge existing custom fields from the database
+            current_index = self.db_connection.get_course_index(course_key)
+            if current_index:
+                for key, value in current_index.items():
+                    if key not in index_entry:
+                        index_entry[key] = value
             self.db_connection.insert_course_index(index_entry, course_key)
 
+
     def update_course_index(self, course_key, updated_index_entry):
-        """
-        Change the given course's index entry.
-
-        Note, this operation can be dangerous and break running courses.
-
-        Does not return anything useful.
-        """
         bulk_write_record = self._get_bulk_ops_record(course_key)
+        print(f"Updating course index for {course_key}. Index entry keys: {list(updated_index_entry.keys())}")
         if bulk_write_record.active:
+            # Merge existing custom fields from bulk_write_record.index
+            if bulk_write_record.index:
+                updated_index_entry = self._merge_index_entries(bulk_write_record.index, updated_index_entry)
             bulk_write_record.index = updated_index_entry
         else:
+            # Merge existing custom fields from the database
+            current_index = self.db_connection.get_course_index(course_key)
+            if current_index:
+                updated_index_entry = self._merge_index_entries(current_index, updated_index_entry)
             self.db_connection.update_course_index(updated_index_entry, course_context=course_key)
+
+    def _merge_index_entries(self, existing_entry, new_entry):
+        """
+        Merge existing index entry with new entry, preserving custom fields.
+        """
+        for key, value in existing_entry.items():
+            if key not in new_entry:
+                new_entry[key] = value
+        return new_entry
+
 
     def get_structure(self, course_key, version_guid):  # lint-amnesty, pylint: disable=missing-function-docstring
         bulk_write_record = self._get_bulk_ops_record(course_key)
@@ -653,6 +716,9 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
         super().__init__(contentstore, **kwargs)
 
         self.db_connection = DjangoFlexPersistenceBackend(**doc_store_config)
+
+        # Store course_owner
+        self.course_owner = None  # Initialize as None, set it later when needed
 
         if default_class is not None:
             module_path, __, class_name = default_class.rpartition('.')
@@ -1622,6 +1688,9 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
         """
         with self.bulk_operations(course_key):
             # split handles all the fields in one dict not separated by scope
+            # find course_index entry if applicable and structures entry
+            index_entry_before = self._get_index_if_valid(course_key, force)
+            print("create item index_entry_before",index_entry_before)
             fields = fields or {}
             fields.update(kwargs.pop('metadata', {}) or {})
             definition_data = kwargs.pop('definition_data', {})
@@ -1632,6 +1701,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
 
             # find course_index entry if applicable and structures entry
             index_entry = self._get_index_if_valid(course_key, force)
+            print("create item index_entry",index_entry)
             structure = self._lookup_course(course_key).structure
 
             partitioned_fields = self.partition_fields_by_scope(block_type, fields)
@@ -1674,6 +1744,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
                 # see if any search targets changed
                 if fields is not None:
                     self._update_search_targets(index_entry, fields)
+                print("1. create_item -index_entry",index_entry)
                 self._update_head(course_key, index_entry, course_key.branch, new_id)
                 item_loc = BlockUsageLocator(
                     course_key.version_agnostic(),
@@ -1712,6 +1783,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
                 in the newly created block
         """
         with self.bulk_operations(parent_usage_key.course_key):
+            print("create item called 1")
             xblock = self.create_item(
                 user_id, parent_usage_key.course_key, block_type, block_id=block_id, fields=fields, asides=asides,
                 **kwargs)
@@ -1780,7 +1852,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
     DEFAULT_ROOT_LIBRARY_BLOCK_ID = 'library'
 
     def create_course(  # lint-amnesty, pylint: disable=arguments-differ
-        self, org, course, run, user_id, master_branch=None, fields=None,
+        self, org, course, run, user_id, course_owner, master_branch=None, fields=None,
         versions_dict=None, search_targets=None, root_category='course',
         root_block_id=None, **kwargs
     ):
@@ -1831,12 +1903,12 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
         # check course and run's uniqueness
         locator = CourseLocator(org=org, course=course, run=run, branch=master_branch)
         return self._create_courselike(
-            locator, user_id, master_branch, fields, versions_dict,
+            locator, user_id, course_owner,master_branch, fields, versions_dict,
             search_targets, root_category, root_block_id, **kwargs
         )
 
     def _create_courselike(  # lint-amnesty, pylint: disable=too-many-statements
-        self, locator, user_id, master_branch, fields=None,
+        self, locator, user_id,course_owner, master_branch, fields=None,
         versions_dict=None, search_targets=None, root_category='course',
         root_block_id=None, **kwargs
     ):
@@ -1902,6 +1974,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
             draft_structure = self._lookup_course(draft_version).structure
 
         locator = locator.replace(version_guid=new_id)
+        print('course_owner4', course_owner)
         with self.bulk_operations(locator):
             self.update_structure(locator, draft_structure)
             index_entry = {
@@ -1909,12 +1982,14 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
                 'org': locator.org,
                 'course': get_library_or_course_attribute(locator),
                 'run': locator.run,
+                'course_owner': course_owner,
                 'edited_by': user_id,
                 'edited_on': datetime.datetime.now(UTC),
                 'versions': versions_dict,
                 'schema_version': self.SCHEMA_VERSION,
                 'search_targets': search_targets or {},
             }
+            self.course_owner = course_owner
             if fields is not None:
                 self._update_search_targets(index_entry, fields)
             self.insert_course_index(locator, index_entry)
@@ -1924,7 +1999,8 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
                 course = self.get_library(locator, **kwargs)
             else:
                 course = self.get_course(locator, **kwargs)
-            return self.update_item(course, user_id, **kwargs)
+            called_by = "Create Function"
+            return self.update_item(course, user_id, called_by, **kwargs)
 
     def create_library(self, org, library, user_id, fields, **kwargs):
         """
@@ -1937,7 +2013,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
         locator = LibraryLocator(org=org, library=library, branch=kwargs["master_branch"])
         return self._create_courselike(locator, user_id, **kwargs)
 
-    def update_item(self, block, user_id, allow_not_found=False, force=False, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
+    def update_item(self, block, user_id,called_by, allow_not_found=False, force=False, **kwargs):  # lint-amnesty, pylint: disable=arguments-differ
         """
         Save the block's fields. it doesn't descend the course dag to save the children.
         Return the new block (updated location).
@@ -1952,7 +2028,9 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
         The implementation tries to detect which, if any changes, actually need to be saved and thus won't version
         the definition, structure, nor course if they didn't change.
         """
-
+        print("update_item_called_9", called_by)
+        index_entry = self.get_course_index(block.location.course_key)
+        print("_update_item_from_fields_called_8_index_entry", index_entry)
         partitioned_fields = self.partition_xblock_fields_by_scope(block)
         definition_locator = getattr(block, "definition_locator", None)
         if definition_locator is None and not allow_not_found:
@@ -1967,24 +2045,28 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
         """
         Broke out guts of update_item for short-circuited internal use only
         """
+        print("_update_item_from_fields_called_9")
         with self.bulk_operations(course_key):
             if allow_not_found and isinstance(block_key.id, (LocalId, type(None))):
                 fields = {}
                 for subfields in partitioned_fields.values():
                     fields.update(subfields)
+                print("create item called 2")
                 return self.create_item(
                     user_id, course_key, block_key.type, fields=fields, asides=asides, force=force
                 )
 
             original_structure = self._lookup_course(course_key).structure
             index_entry = self._get_index_if_valid(course_key, force)
-
+            print("_update_item_from_fields_called_9_original_structure", original_structure)
+            print("_update_item_from_fields_called_9_index_entry", index_entry)
             original_entry = self._get_block_from_structure(original_structure, block_key)
             if original_entry is None:
                 if allow_not_found:
                     fields = {}
                     for subfields in partitioned_fields.values():
                         fields.update(subfields)
+                    print("create item called 3")
                     return self.create_item(user_id, course_key, block_key.type, block_id=block_key.id, fields=fields,
                                             asides=asides, force=force)
                 else:
@@ -2057,6 +2139,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
                             branch=course_key.branch,
                             version_guid=new_id
                         )
+                    print("2. _update_item_from_fields -index_entry",index_entry)
                     self._update_head(course_key, index_entry, course_key.branch, new_id)
                 elif isinstance(course_key, LibraryLocator):
                     course_key = LibraryLocator(version_guid=new_id)
@@ -2154,6 +2237,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
 
                 # update the index entry if appropriate
                 if index_entry is not None:
+                    print("3. persist_xblock_dag -index_entry",index_entry)
                     self._update_head(course_key, index_entry, xblock.location.branch, new_id)
 
                 # fetch and return the new item--fetching is unnecessary but a good qc step
@@ -2345,6 +2429,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
 
             # update the db
             self.update_structure(destination_course, destination_structure)
+            print("4. copy -index_entry",index_entry)
             self._update_head(destination_course, index_entry, destination_course.branch, destination_structure['_id'])
 
     def copy_from_template(self, source_keys, dest_usage, user_id, head_validation=True):
@@ -2425,6 +2510,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
                 del dest_structure['blocks'][orphan]
 
             self.update_structure(destination_course, dest_structure)
+            print("5. copy_from_template -index_entry",index_entry)
             self._update_head(destination_course, index_entry, destination_course.branch, dest_structure['_id'])
         # Return usage locators for all the new children:
         return [
@@ -2735,6 +2821,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
 
             if index_entry is not None:
                 # update the index entry if appropriate
+                print("6. _update_course_assets -index_entry",index_entry)
                 self._update_head(asset_key.course_key, index_entry, asset_key.branch, new_structure['_id'])
 
     def save_asset_metadata_list(self, asset_metadata_list, user_id, import_only=False):
@@ -2766,6 +2853,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
 
             if index_entry is not None:
                 # update the index entry if appropriate
+                print("7. save_asset_metadata_list -index_entry",index_entry)
                 self._update_head(course_key, index_entry, asset_key.branch, new_structure['_id'])
 
     def save_asset_metadata(self, asset_metadata, user_id, import_only=False):
@@ -2852,6 +2940,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
 
             if index_entry is not None:
                 # update the index entry if appropriate
+                print("8. copy_all_asset_metadata -index_entry",index_entry)
                 self._update_head(dest_course_key, index_entry, dest_course_key.branch, new_structure['_id'])
 
     def fix_not_found(self, course_locator, user_id):
@@ -2873,6 +2962,7 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
         self.update_structure(course_locator, new_structure)
         if index_entry is not None:
             # update the index entry if appropriate
+            print("9. fix_not_found -index_entry",index_entry)
             self._update_head(course_locator, index_entry, course_locator.branch, new_structure['_id'])
 
     def convert_references_to_keys(self, course_key, xblock_class, jsonfields, blocks):  # lint-amnesty, pylint: disable=unused-argument
@@ -2932,12 +3022,15 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
         :param force: if false, raises VersionConflictError if the current head of the course != the one identified
         by course_key
         """
+
+        print("_get_index_if_valid called")
         if (course_key.org is None or
                 get_library_or_course_attribute(course_key) is None or
                 course_key.run is None or course_key.branch is None):
             return None
         else:
             index_entry = self.get_course_index(course_key)
+            print("_get_index_if_valid", index_entry)
             is_head = (
                 course_key.version_guid is None or
                 index_entry['versions'][course_key.branch] == course_key.version_guid
@@ -2972,18 +3065,56 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
             if field_name in self.SEARCH_TARGET_DICT:
                 index_entry.setdefault('search_targets', {})[field_name] = field_value
 
-    def _update_head(self, course_key, index_entry, branch, new_id):
-        """
-        Update the active index for the given course's branch to point to new_id
+    # def _update_head(self, course_key, index_entry, branch, new_id):
+    #     print("Sanu is Here _update_head")
+    #     print(index_entry)
+    #     if not isinstance(new_id, ObjectId):
+    #         raise TypeError(f'new_id must be an ObjectId, but is {new_id!r}')
 
-        :param index_entry:
-        :param course_locator:
-        :param new_id:
-        """
+    #     # Merge existing custom fields from the current index entry
+    #     current_index = self.get_course_index(course_key)
+    #     if current_index:
+    #         for key, value in current_index.items():
+    #             if key not in index_entry:
+    #                 index_entry[key] = value
+
+    #     index_entry['versions'][branch] = new_id
+    #     #index_entry['sanu_added-2'] = "Sanu Added 2"
+    #     self.update_course_index(course_key, index_entry)
+
+    # def _update_head(self, course_key, index_entry, branch, new_id):
+    #     print("_update_head before", index_entry)
+    #     if not isinstance(new_id, ObjectId):
+    #         raise TypeError(f'new_id must be an ObjectId, but is {new_id!r}')
+
+    #     # Merge existing custom fields from the current index entry
+    #     current_index = self.get_course_index(course_key)
+    #     if current_index:
+    #         for key, value in current_index.items():
+    #             if key not in index_entry:
+    #                 index_entry[key] = value
+
+    #     index_entry['versions'][branch] = new_id
+    #     print("_update_head current_index", current_index)
+    #     print("_update_head after", index_entry)
+    #     self.update_course_index(course_key, index_entry)
+
+    def _update_head(self, course_key, index_entry, branch, new_id):
         if not isinstance(new_id, ObjectId):
             raise TypeError(f'new_id must be an ObjectId, but is {new_id!r}')
+
+        # Merge existing custom fields
+        current_index = self.get_course_index(course_key)
+        if current_index:
+            index_entry = self._merge_index_entries(current_index, index_entry)
+        index_entry['course_owner'] = self.course_owner
+        print("Index Entry 11", index_entry)
+        index_entry_before = self._get_index_if_valid(course_key, False)
+        print("create item index_entry_ inside _update_head",index_entry_before)
         index_entry['versions'][branch] = new_id
         self.update_course_index(course_key, index_entry)
+
+
 
     def partition_xblock_fields_by_scope(self, xblock):
         """
