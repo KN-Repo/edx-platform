@@ -53,4 +53,3 @@ To help with this direction, please **do not add new functionality to this direc
 .. _openedx-learning: https://github.com/openedx/openedx-learning
 .. _xblock-drag-and-drop-v2: https://github.com/openedx/xblock-drag-and-drop-v2
 .. _the forums: https://discuss.openedx.org
-

@@ -72,6 +72,16 @@ from openedx.core.djangoapps.theming.helpers_dirs import (
 from openedx.core.lib.derived import derived, derived_collection_entry
 from openedx.core.release import doc_version
 from lms.djangoapps.lms_xblock.mixin import LmsBlockMixin
+from xmodule.toggles import (
+    USE_EXTRACTED_WORD_CLOUD_BLOCK,
+    USE_EXTRACTED_ANNOTATABLE_BLOCK,
+    USE_EXTRACTED_POLL_QUESTION_BLOCK,
+    USE_EXTRACTED_LTI_BLOCK,
+    USE_EXTRACTED_HTML_BLOCK,
+    USE_EXTRACTED_DISCUSSION_BLOCK,
+    USE_EXTRACTED_PROBLEM_BLOCK,
+    USE_EXTRACTED_VIDEO_BLOCK,
+)
 
 ################################### FEATURES ###################################
 # .. setting_name: PLATFORM_NAME
