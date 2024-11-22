@@ -137,17 +137,6 @@ from openedx.core.lib.license import LicenseMixin
 from openedx.core.lib.derived import derived, derived_collection_entry
 from openedx.core.release import doc_version
 
-from xmodule.toggles import (
-    USE_EXTRACTED_WORD_CLOUD_BLOCK,
-    USE_EXTRACTED_ANNOTATABLE_BLOCK,
-    USE_EXTRACTED_POLL_QUESTION_BLOCK,
-    USE_EXTRACTED_LTI_BLOCK,
-    USE_EXTRACTED_HTML_BLOCK,
-    USE_EXTRACTED_DISCUSSION_BLOCK,
-    USE_EXTRACTED_PROBLEM_BLOCK,
-    USE_EXTRACTED_VIDEO_BLOCK,
-)
-
 # pylint: enable=useless-suppression
 
 ################ Enable credit eligibility feature ####################
