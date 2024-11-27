@@ -43,6 +43,10 @@ def index(request):
                 'ALWAYS_REDIRECT_HOMEPAGE_TO_DASHBOARD_FOR_AUTHENTICATED_USER',
                 settings.FEATURES.get('ALWAYS_REDIRECT_HOMEPAGE_TO_DASHBOARD_FOR_AUTHENTICATED_USER', True)):
             return redirect('dashboard')
+    else:
+        # Redirect unauthenticated users to the login page
+        login_url = f"/login{login_query()}"
+        return redirect(login_url)
 
     enable_mktg_site = configuration_helpers.get_value(
         'ENABLE_MKTG_SITE',
@@ -77,6 +81,10 @@ def index(request):
             f'Request Meta= {request.META}'
         )
         raise
+
+def login_query():
+    # Implement your login query logic here
+    return "?next=/"
 
 
 @ensure_csrf_cookie
