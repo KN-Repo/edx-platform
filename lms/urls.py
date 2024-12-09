@@ -271,6 +271,13 @@ urlpatterns += [
         name='jump_to',
     ),
     re_path(
+        r'^courses/{}/get_jump_to_url/(?P<location>.*)$'.format(
+            settings.COURSE_ID_PATTERN,
+        ),
+        courseware_views.get_jump_to_url,
+        name='get_jump_to_url',
+    ),
+    re_path(
         r'^courses/{}/jump_to_id/(?P<module_id>.*)$'.format(
             settings.COURSE_ID_PATTERN,
         ),
