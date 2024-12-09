@@ -448,6 +448,42 @@ def jump_to(request, course_id, location):
 
     return redirect(redirect_url)
 
+@ensure_csrf_cookie
+def get_jump_to_url(request, course_id, location):
+    """
+    Show the page that contains a specific location.
+
+    If the location is invalid or not in any class, return a 404.
+    Otherwise, delegates to the courseware views to figure out whether this user
+    has access, and what they should see.
+
+    By default, this view redirects to the active courseware experience.
+    Alternatively, the `experience` query parameter may be provided as either
+    "new" or "legacy" to force either a Micro-Frontend or Legacy-LMS redirect
+    link to be generated, respectively.
+    """
+    try:
+        course_key = CourseKey.from_string(course_id)
+        usage_key = UsageKey.from_string(location).replace(course_key=course_key)
+    except InvalidKeyError as exc:
+        raise Http404("Invalid course_key or usage_key") from exc
+
+    try:
+        redirect_url = get_courseware_url(
+            usage_key=usage_key,
+            request=request,
+        )
+    except (ItemNotFoundError, NoPathToItem):
+        # We used to 404 here, but that's ultimately a bad experience. There are real world use cases where a user
+        # hits a no-longer-valid URL (for example, "resume" buttons that link to no-longer-existing block IDs if the
+        # course changed out from under the user). So instead, let's just redirect to the beginning of the course,
+        # as it is at least a valid page the user can interact with...
+        redirect_url = get_courseware_url(
+            usage_key=course_location_from_key(course_key),
+            request=request,
+        )
+
+    return JsonResponse({'url': redirect_url})
 
 class StaticCourseTabView(EdxFragmentView):
     """

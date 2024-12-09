@@ -161,7 +161,7 @@ FEATURES = {
     # .. toggle_creation_date: 2013-07-30
     # .. toggle_warning: This should remain off in production until digest notifications are online.
     # .. toggle_tickets: https://github.com/openedx/edx-platform/pull/520
-    'ENABLE_DISCUSSION_HOME_PANEL': False,
+    'ENABLE_DISCUSSION_HOME_PANEL': True,
 
     # .. toggle_name: FEATURES['ENABLE_DISCUSSION_EMAIL_DIGEST']
     # .. toggle_implementation: DjangoSetting
