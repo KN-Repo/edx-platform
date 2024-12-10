@@ -5,29 +5,24 @@
 
 <%!
 from django.utils.translation import gettext as _
-
+from datetime import datetime
 from openedx.core.djangolib.markup import HTML
 from openedx.features.course_experience import course_home_page_title
+
+# Function to format date to dd-mm-yyyy
+def format_date(date_str):
+    try:
+        # Parse the date string and format it as dd-mm-yyyy
+        date_obj = datetime.strptime(date_str, '%B %d, %Y')  # Assumes input format like "December 10, 2024"
+        return date_obj.strftime('%d-%m-%Y')
+    except ValueError:
+        # Return the original date if parsing fails
+        return date_str
 %>
 
 <%block name="content">
 <div class="course-updates page-content-container" id="course-container">
-    <header class="page-header has-secondary">
-        ## Breadcrumb navigation
-        <div class="page-header-main">
-            <nav aria-label="${_('Updates')}" class="sr-is-focusable" tabindex="-1">
-                <div class="has-breadcrumbs">
-                    <div class="breadcrumbs">
-                        <span class="nav-item">
-                            <a href="${course_url}">${course_home_page_title(course)}</a>
-                        </span>
-                        <span class="icon fa fa-angle-right" aria-hidden="true"></span>
-                        <span class="nav-item">${_('Updates')}</span>
-                    </div>
-                </div>
-            </nav>
-        </div>
-    </header>
+    <h1 class="course-title">Announcement</h1>
     <div class="page-content">
         % if plain_html_updates:
             ${HTML(plain_html_updates)}
@@ -35,12 +30,17 @@ from openedx.features.course_experience import course_home_page_title
             <div class="all-updates">
                 % if updates:
                     % for index, update in enumerate(updates):
-                        <article class="updates-article">
+                        <article class="updates-article" id="update-${index}" style="background-color: #FFFBEB; border: 1px solid #DEB887; border-radius: 8px; display: flex; flex-direction: column; padding: 1rem; margin-bottom: 1rem;">
                             % if not update.get("is_error"):
-                                <div class="date">${update.get("date")}</div>
+                                <div class="date" style="font-weight: bold; font-size: larger; color: black;">Notice - ${format_date(update.get("date"))}</div>
                             % endif
-                            <div class="article-content">
+                            <div class="article-content" style="color: #313131;">
                                 ${HTML(update.get("content"))}
+                            </div>
+                            <div style="display: flex; justify-content: flex-start;">
+                                <button class="dismiss-btn" data-update-id="update-${index}" style="background: none; border: none; cursor: pointer; margin-right: 2rem; margin-top: 1rem; color: #a300a3;">
+                                    Dismiss
+                                </button>
                             </div>
                         </article>
                     % endfor
@@ -53,4 +53,41 @@ from openedx.features.course_experience import course_home_page_title
         % endif
     </div>
 </div>
+
+<script>
+    // JavaScript function to handle dismiss button click
+    document.addEventListener("DOMContentLoaded", function () {
+        const dismissButtons = document.querySelectorAll('.dismiss-btn');
+        dismissButtons.forEach(button => {
+            button.addEventListener('click', function () {
+                const updateId = this.getAttribute('data-update-id');
+                const article = document.getElementById(updateId);
+                if (article) {
+                    article.remove();
+                }
+            });
+        });
+
+        const navbarNav = document.querySelector('.navbar-nav');
+    if (navbarNav) {
+        // Remove the active class from all li elements
+        const navItems = navbarNav.querySelectorAll('li.nav-item');
+        navItems.forEach(item => {
+            item.classList.remove('active');
+        });
+
+        // Create a new li element for Announcements
+        const newNavItem = document.createElement('li');
+        newNavItem.className = 'nav-item active';
+        newNavItem.innerHTML = `
+            <a href="#" class="nav-link">
+                Announcements
+            </a>
+        `;
+
+        // Append the new li element to the ul
+        navbarNav.appendChild(newNavItem);
+    }
+    });
+</script>
 </%block>
