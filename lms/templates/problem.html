@@ -99,21 +99,15 @@
     });
   }
 
-  // Function to reset response labels
-  function resetResponseLabels() {
+  // Function to reset on selecting a new answer
+  function resetOnNewAnswer() {
     // Reset response labels logic here
-    const checkBoxes = document.querySelectorAll('input[type="checkbox"]');
+    const checkBoxes = document.querySelectorAll('input[type="checkbox"]:not([data-listenerAttached])');
     checkBoxes.forEach(checkBox => {
       if (checkBox.disabled) {
         return;
       }
 
-      const existingListener = checkBox.getAttribute('data-listener-attached');
-      if (existingListener) {
-        return;
-      }
-
-      checkBox.setAttribute('data-listener-attached', 'true');
       checkBox.addEventListener('click', function(event) {
         const fieldset = event.target.closest('fieldset');
         if (fieldset) {
@@ -140,6 +134,7 @@
           }
         }
       });
+      checkBox.dataset.listenerAttached = "true";
     });
   }
 
@@ -170,7 +165,7 @@
     // Set up MutationObserver to monitor dynamically added elements
     const observer = new MutationObserver(() => {
       modifyProblemXblock();
-      resetResponseLabels();
+      resetOnNewAnswer();
     });
 
     observer.observe(document.body, {
