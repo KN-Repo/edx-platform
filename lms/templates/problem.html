@@ -102,13 +102,13 @@
   // Function to reset on selecting a new answer
   function resetOnNewAnswer() {
     // Reset response labels logic here
-    const checkBoxes = document.querySelectorAll('input[type="checkbox"]:not([data-listenerAttached])');
-    checkBoxes.forEach(checkBox => {
-      if (checkBox.disabled) {
+    const inputs = document.querySelectorAll('input[type="checkbox"]:not([data-listenerAttached]), input[type="radio"]:not([data-listenerAttached])');
+    inputs.forEach(input => {
+      if (input.disabled) {
         return;
       }
 
-      checkBox.addEventListener('click', function(event) {
+      input.addEventListener('click', function(event) {
         const fieldset = event.target.closest('fieldset');
         if (fieldset) {
           fieldset.querySelectorAll('label').forEach(label => {
@@ -134,7 +134,7 @@
           }
         }
       });
-      checkBox.dataset.listenerAttached = "true";
+      input.dataset.listenerAttached = "true";
     });
   }
 
