@@ -1,3 +1,197 @@
+<script>
+  // Utility to add a class to an element
+  function createElementWithClass(tag, className, textContent = null) {
+    const element = document.createElement(tag);
+    element.classList.add(className);
+    if (textContent) element.textContent = textContent;
+    return element;
+  }
+
+  function modifyFeedbacks(xblock){
+    // Handle feedback messages
+    const feedbackMessages = xblock.querySelector('.message');
+    const problemResponseWrapper = xblock.querySelector('.wrapper-problem-response');
+    if (feedbackMessages) {
+        const feedbackPoints = feedbackMessages.querySelector('.feedback-hint-multi');
+        const feedbackMessagesContainer = createElementWithClass('div', 'feedback-messages-container');
+        feedbackMessagesContainer.appendChild(createElementWithClass('span', 'feedback-messages-text', 'Feedback'));
+        if (feedbackPoints) feedbackMessagesContainer.appendChild(feedbackPoints);
+
+        // Insert feedbackMessagesContainer as the last element of problemResponseWrapper
+        problemResponseWrapper.appendChild(feedbackMessagesContainer);
+        feedbackMessages.remove();
+    }
+  }
+
+  function modifyResponseLabels(xblock){
+    // Select all label elements with the 'response-label' class
+    xblock.querySelectorAll('.response-label').forEach(label => {
+      if (label.classList.contains('choicegroup_incorrect')) {
+        if (label.querySelector('.response-status-text')) return;
+        const incorrectSpan = createElementWithClass('span', 'response-status-text', 'Wrong Answer');
+        incorrectSpan.style.color = '#721c24';
+        incorrectSpan.style.fontWeight = '600';
+        label.appendChild(incorrectSpan);
+      } else if (label.classList.contains('choicegroup_correct')) {
+        if (label.querySelector('span.status.correct')) {
+          label.querySelector('span.status.correct').remove();
+        }
+
+        if (label.querySelector('.response-status-text')) {
+          const existingText = label.querySelector('.response-status-text').textContent;
+          if (existingText === 'Correct Answer') return;
+          label.querySelector('.response-status-text').remove();
+        }
+        const correctSpan = createElementWithClass('span', 'response-status-text', 'Correct Answer');
+        correctSpan.style.fontWeight = '600';
+        correctSpan.style.color = '#155724';
+        label.appendChild(correctSpan);
+      }
+    });
+  }
+
+  function modifyExplanation(xblock, status){
+    // show the explanation
+    const showButton = xblock.querySelector(".show:not([data-clicked])");
+    if (showButton) {
+        showButton.click();
+        showButton.dataset.clicked = "true";
+    }
+
+    // Handle explanation
+    const problemResponseWrapper = xblock.querySelector('.wrapper-problem-response:not([data-modified])');
+    if (!problemResponseWrapper) return;
+
+    const indicator = xblock.querySelector('.indicator-container');
+    const solutionSpan = xblock.querySelector('.solution-span');
+
+    // Create and append problem status container
+    const problemStatusContainer = createElementWithClass('div', 'problem-status', null);
+    problemStatusContainer.classList.add(status);
+
+    const statusIndicatorContainer = createElementWithClass('div', 'status-indicator-container');
+    const statusText = createElementWithClass('span', 'status-text', status.charAt(0).toUpperCase() + status.slice(1));
+
+    statusIndicatorContainer.appendChild(indicator);
+    statusIndicatorContainer.appendChild(statusText);
+    problemStatusContainer.appendChild(statusIndicatorContainer);
+
+    if (solutionSpan) {
+        const explanationContainer = createElementWithClass('div', 'explanation-container');
+        explanationContainer.appendChild(solutionSpan);
+        problemStatusContainer.appendChild(explanationContainer);
+    }
+
+    // Insert problemStatusContainer after feedbackMessagesContainer if it exists, otherwise as the last child
+    const feedbackMessagesContainer = problemResponseWrapper.querySelector('.feedback-messages-container');
+    if (feedbackMessagesContainer) {
+        feedbackMessagesContainer.insertAdjacentElement('afterend', problemStatusContainer);
+    } else {
+        problemResponseWrapper.appendChild(problemStatusContainer);
+    }
+    problemResponseWrapper.dataset.modified = "true";
+  }
+
+  function modifyInputStatus(xblock, disabled){
+    const inputElements = xblock.querySelectorAll('input');
+    inputElements.forEach(inputElement => {
+      inputElement.disabled = disabled;
+    });
+  }
+
+  // Function to reset on selecting a new answer
+  function resetOnNewAnswer() {
+    // Reset response labels logic here
+    const inputs = document.querySelectorAll('input[type="checkbox"]:not([data-listenerAttached]), input[type="radio"]:not([data-listenerAttached])');
+    inputs.forEach(input => {
+      if (input.disabled) {
+        return;
+      }
+
+      input.addEventListener('click', function(event) {
+        const fieldset = event.target.closest('fieldset');
+        if (fieldset) {
+          fieldset.querySelectorAll('label').forEach(label => {
+            const responseStatusText = label.querySelector('.response-status-text');
+            if (responseStatusText) {
+              responseStatusText.remove();
+            }
+          });
+        }
+
+        const wrapperProblemResponse = event.target.closest('.wrapper-problem-response');
+        if (wrapperProblemResponse) {
+          // Remove existing feedback messages container if it exists
+          const existingFeedbackMessagesContainer = wrapperProblemResponse.querySelector('.feedback-messages-container');
+          if (existingFeedbackMessagesContainer) {
+            existingFeedbackMessagesContainer.remove();
+          }
+
+          // Remove existing problem status container if it exists
+          const existingProblemStatusContainer = wrapperProblemResponse.querySelector('.problem-status');
+          if (existingProblemStatusContainer) {
+            existingProblemStatusContainer.remove();
+          }
+        }
+      });
+      input.dataset.listenerAttached = "true";
+    });
+  }
+
+  // Modify Xblock problem function
+  function modifyProblemXblock(){
+    const xblockDivs = document.querySelectorAll('.xblock.xblock-student_view.xblock-student_view-problem.xmodule_display.xmodule_ProblemBlock.xblock-initialized[data-course-id][data-init][data-runtime-class][data-runtime-version][data-block-type="problem"][data-usage-id][data-request-token][data-graded][data-has-score]');
+    xblockDivs.forEach(xBlock => {
+      modifyFeedbacks(xBlock);
+
+      // Check for status of the problem and if it is unanswered then skip
+      const statusElement = xBlock.querySelector('.indicator-container .status .sr');
+      if (!statusElement) return;
+      const status = statusElement.textContent.trim();
+      if (!['correct', 'incorrect'].includes(status)) return;
+
+      modifyExplanation(xBlock, status);
+
+      const submitButton = xBlock.querySelector('.submit');
+      const submitButtonStatus = submitButton.disabled;
+      modifyInputStatus(xBlock, submitButtonStatus);
+      modifyResponseLabels(xBlock);
+    });
+  }
+  
+  // Initialize the script
+  window.onload = function () {
+    modifyProblemXblock();
+    // Set up MutationObserver to monitor dynamically added elements
+    const observer = new MutationObserver(() => {
+      modifyProblemXblock();
+      resetOnNewAnswer();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  };
+</script>
+
+<style>
+  .choicegroup_correct{background-color:#d4edda;}
+  .choicegroup_incorrect{background-color:#f8d7da;}
+  .problem-status,.feedback-messages-container{display:flex;flex-direction:column;padding:.5em;border-radius:.25em;margin-bottom:1em;}
+  .feedback-messages-container{background-color:#FFFBEB;border:1px solid #DEB887;}
+  .problem-status.correct{background-color:#d4edda;color:#155724;}
+  .problem-status.incorrect{background-color:#f8d7da;color:#721c24;}
+  .status-indicator-container{display:flex;flex-direction:row;align-items:center;}
+  .status-text,.feedback-messages-text{margin-left:.5em;font-weight:bold;}
+  .explanation-container{margin-left:2.5rem;}
+  .solution-span>span{margin:0!important;}
+  .feedback-hint-multi{margin-left:1em;}
+  .hint-text{position:relative;margin-left:1em;}
+  .hint-text::before{content:"•";position:absolute;left:-1em;top:50%;transform:translateY(-50%);color:black;}
+  .response-label{display:inline-flex!important;flex-direction:row;gap:.5em;align-items:center;}
+</style>
+
 <%page expression_filter="h"/>
 <%!
 from django.utils.translation import ngettext, gettext as _
@@ -5,6 +199,7 @@ from openedx.core.djangolib.markup import HTML, Text
 %>
 
 <%namespace name='static' file='static_content.html'/>
+
 <h3 class="hd hd-3 problem-header" id="${ short_id }-problem-title" aria-describedby="${ id }-problem-progress" tabindex="-1">
   ${ problem['name'] }
 </h3>
@@ -43,11 +238,6 @@ from openedx.core.djangolib.markup import HTML, Text
       % if attempts_used and reset_button:
       <span class="problem-action-button-wrapper">
           <button type="button" class="reset problem-action-btn btn-link btn-small" data-value="${_('Reset')}"><span aria-hidden="true">${_('Reset')}</span><span class="sr">${_("Reset your answer")}</span></button>
-      </span>
-      % endif
-      % if answer_available:
-      <span class="problem-action-button-wrapper">
-          <button type="button" class="show problem-action-btn btn-link btn-small" aria-describedby="${ short_id }-problem-title"><span class="show-label">${_('Show answer')}</span></button>
       </span>
       % endif
     </div>
@@ -95,6 +285,10 @@ from openedx.core.djangolib.markup import HTML, Text
         % endif
         <span class="sr">${_("Some problems have options such as save, reset, hints, or show answer. These options follow the Submit button.")}</span>
       </div>
+
+      % if answer_available:
+        <button style="display:none;" type="button" class="show problem-action-btn btn-link btn-small" aria-describedby="${ short_id }-problem-title"><span class="show-label">${_('Show answer')}</span></button>
+      % endif
     </div>
   </div>
     <%include file="problem_notifications.html" args="
@@ -159,9 +353,3 @@ from openedx.core.djangolib.markup import HTML, Text
       is_hidden=True"
     />
 </div>
-
-<script>
-    function emit_event(message) {
-        parent.postMessage(message, '*');
-    }
-</script>
