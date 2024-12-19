@@ -762,7 +762,7 @@ FEATURES = {
     # .. toggle_use_cases: open_edx
     # .. toggle_creation_date: 2017-04-12
     # .. toggle_tickets: https://openedx.atlassian.net/browse/YONK-513
-    'ALLOW_PUBLIC_ACCOUNT_CREATION': False,
+    'ALLOW_PUBLIC_ACCOUNT_CREATION': True,
 
     # .. toggle_name: FEATURES['SHOW_REGISTRATION_LINKS']
     # .. toggle_implementation: DjangoSetting
